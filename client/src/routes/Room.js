@@ -15,10 +15,11 @@ const Container = styled.div`
 `;
 
 const VideoContainer = styled.div`
-    display: flex;
     height: 100%;
-    width: 100%;
-    flex-wrap: wrap;
+    max-width: 1000px
+    display: grid;
+    grid-gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr))
 `;
 
 const VideoBoxContainer = styled.div`
@@ -44,8 +45,13 @@ const Nav = styled.nav`
 `
 
 const StyledVideo = styled.video`
-    height: 40%;
-    width: 50%;
+    padding: 10px;
+    width: 550px;
+    height: 550px;
+    object-fit: cover;
+    transform: rotateY(180deg);
+    -webkit-transform:rotateY(180deg);
+    -moz-transform:rotateY(180deg);
 `;
 
 const ButtonsContainer = styled.div`
@@ -67,14 +73,14 @@ const Video = (props) => {
     }, []);
 
     return (
-        <StyledVideo playsInline autoPlay ref={ref} />
+        <StyledVideo controls playsInline autoPlay ref={ref} />
     );
 }
 
 
 const videoConstraints = {
-    height: window.innerHeight / 2,
-    width: window.innerWidth / 2
+    // height: window.innerHeight / 2,
+    // width: window.innerWidth / 2
 };
 
 const Room = (props) => {
@@ -186,43 +192,44 @@ const Room = (props) => {
         for (let index in userVideo.current.srcObject.getVideoTracks()) {
             userVideo.current.srcObject.getVideoTracks()[index].enabled = !userVideo.current.srcObject.getVideoTracks()[index].enabled
         }
-        console.log('socketRef', socketRef)
-        // peers[0].destroy()
     }
 
-    function shareScreen(){
+    function toggleMute() {
+        for (let index in userVideo.current.srcObject.getAudioTracks()) {
+            userVideo.current.srcObject.getAudioTracks()[index].enabled = !userVideo.current.srcObject.getAudioTracks()[index].enabled
+        }
+    }
+
+
+    const getStream = screenStream => {
+        for (const item of peersRef.current) {
+            item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+        }
+        userVideo.current.srcObject=screenStream
+        screenStream.getTracks()[0].onended = () =>{
+            for (const item of peersRef.current) {
+                item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+            }
+            userVideo.current.srcObject=stream
+        }
+    }
+
+    const toggleShareScreen = () => {
+        console.log('ssss', navigator.mediaDevices)
+        if (isScreenShareOn) {
+            setIsScreenOn(false)
+
+            return  navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true }).then(getStream)
+        }
         setIsScreenOn(true)
-        navigator.mediaDevices.getDisplayMedia({cursor:true})
-            .then(screenStream=>{
-                for (const item of peersRef.current) {
-                    item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
-                }
-                userVideo.current.srcObject=screenStream
-                screenStream.getTracks()[0].onended = () =>{
-                    for (const item of peersRef.current) {
-                        item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
-                    }
-                    userVideo.current.srcObject=stream
-                }
-            })
+        return navigator.mediaDevices.getDisplayMedia({cursor:true}).then(getStream)
     }
 
-    function stopScreenShare(){
-        setIsScreenOn(false)
-        navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true })
-            .then(screenStream=>{
-                for (const item of peersRef.current) {
-                    item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
-                }
-                userVideo.current.srcObject=screenStream
-                screenStream.getTracks()[0].onended = () =>{
-                    for (const item of peersRef.current) {
-                        item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
-                    }
-                    userVideo.current.srcObject=stream
-                }
-            })
+
+    function endCall(){
+        setIsCallOn(false)
     }
+
     if (!callOn) {
         return <div>
             To jest koniec rozmowy. Czy chcesz sie jeszcze polaczyc?
@@ -234,7 +241,7 @@ const Room = (props) => {
                 <Nav><Logo/></Nav>
                 <VideoBoxContainer>
                     <VideoContainer>
-                        <StyledVideo muted ref={userVideo} autoPlay playsInline />
+                        <StyledVideo controls ref={userVideo} autoPlay playsInline />
                         {peers.map((peer, index) => {
                             return (
                                 <Video key={peer.peerID} peer={peer.peer} />
@@ -246,15 +253,15 @@ const Room = (props) => {
                             <span onClick={toggleVid} >
                                 <CameraIcon />
                             </span>
-                            <span>
+                            <span onClick={toggleMute}>
                                 <MicrofonIcon />
                             </span>
                         </div>
-                        <span onClick={() => setIsCallOn(false)}>
+                        <span onClick={endCall}>
                             <EndCallIcon />
                         </span>
-                        <span onClick={isScreenShareOn ? stopScreenShare : shareScreen}>
-                            <ShareScreenIcon onClick={shareScreen} />
+                        <span onClick={toggleShareScreen}>
+                            <ShareScreenIcon />
                         </span>
                     </ButtonsContainer>
                 </VideoBoxContainer>
