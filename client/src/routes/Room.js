@@ -90,9 +90,8 @@ const Room = (props) => {
     const socketRef = useRef();
     const userVideo = useRef();
     const peersRef = useRef([]);
-    const senders = useRef([]);
-    const userStream = useRef();
     const [stream, setStream] = useState();
+    const [sharedStream, setSharedStream] = useState();
     const roomID = props.match.params.roomID;
 
     useEffect(() => {
@@ -147,8 +146,30 @@ const Room = (props) => {
                 peersRef.current = peers
                 setPeers(peers)
             })
+            // console.log('stream', stream)
+            // stream.addEventListener('inactive', e => {
+            //     console.log('Capture stream inactive - stop recording!');
+            // })
+            // stream.onended = () => { // Click on browser UI stop sharing button
+            //     console.info("Recording has ended");
+            // };
+            // stream.oninactive = () => {console.log('co sie zadzialo') }
+
+            // somebody clicked on "Stop sharing"
+            // stream.getVideoTracks()[0].onended = function () {
+            //     console.log('bleeee')
+            // };
         })
+        // const x = userVideo.current.srcObject
     }, []);
+
+    // useEffect(() => {
+    //     if (stream) {
+    //         stream.onended = () => {
+    //             console.info("ScreenShare has ended");
+    //         };
+    //     }
+    // })
 
     function createPeer(userToSignal, callerID, stream) {
         setStream(stream)
@@ -177,12 +198,6 @@ const Room = (props) => {
             socketRef.current.emit("returning signal", { signal, callerID })
         })
 
-        // peer.on('stream', function (stream) {
-        //     // got remote video stream, now let's show it in a video tag
-        //     peer.srcObject = stream;
-        //     // video.play();
-        // })
-
         peer.signal(incomingSignal);
 
         return peer;
@@ -202,39 +217,67 @@ const Room = (props) => {
 
 
     const getStream = screenStream => {
-        for (const item of peersRef.current) {
-            item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+        screenStream.oninactive = () => {
+            setIsScreenOn(false)
+            navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true }).then(getStream)
         }
-        userVideo.current.srcObject=screenStream
-        screenStream.getTracks()[0].onended = () =>{
-            for (const item of peersRef.current) {
+
+        for (const item of peersRef.current) {
                 item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
             }
-            userVideo.current.srcObject=stream
-        }
+            userVideo.current.srcObject=screenStream
+            screenStream.getTracks()[0].onended = () =>{
+                for (const item of peersRef.current) {
+                    item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+                }
+                userVideo.current.srcObject=stream
+            }
     }
+    //
+    // const getStream = screenStream => {
+    //     screenStream.oninactive = () => {console.log('co sie zadzialo') }
+    //
+    //     for (const item of peersRef.current) {
+    //         item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+    //     }
+    //     userVideo.current.srcObject=screenStream
+    //     screenStream.getTracks()[0].onended = () =>{
+    //         for (const item of peersRef.current) {
+    //             item.peer.replaceTrack(stream.getVideoTracks()[0],screenStream.getVideoTracks()[0],stream)
+    //         }
+    //         userVideo.current.srcObject=stream
+    //     }
+    // }
 
     const toggleShareScreen = () => {
         console.log('ssss', navigator.mediaDevices)
         if (isScreenShareOn) {
             setIsScreenOn(false)
-
+            stopCapture()
             return  navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true }).then(getStream)
         }
         setIsScreenOn(true)
         return navigator.mediaDevices.getDisplayMedia({cursor:true}).then(getStream)
     }
 
+    function stopCapture() {
+        let tracks = userVideo.current.srcObject.getTracks();
+
+        tracks.forEach(track => track.stop());
+        // userVideo.current.srcObject = stream;
+    }
 
     function endCall(){
         setIsCallOn(false)
     }
+
 
     if (!callOn) {
         return <div>
             To jest koniec rozmowy. Czy chcesz sie jeszcze polaczyc?
         </div>
     }
+    console.log('streameeer', stream)
     return (
         <>
             <Container>
